@@ -44,7 +44,10 @@ async fn search_handler(Query(params): Query<SearchTerm>) -> Result<Json<SearchR
               "value": search_term
             }
           },
-          "return_type": "entry"
+          "return_type": "entry",
+            "request_options": {
+                "return_all_hits": true
+            }
         }).to_string();
     dbg!(&search_request);
 
