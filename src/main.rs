@@ -5,6 +5,7 @@ use serde::{Serialize, Deserialize};
 
 use urlencoding::encode;
 use reqwest;
+use reqwest::Response;
 
 #[derive(Serialize, Deserialize, Debug)]
 struct SearchResult {
@@ -23,18 +24,19 @@ struct Entry {
 
 #[tokio::main]
 async fn main() {
-    let app = Router::new().route("/search", get(search_handler));
+    let app = Router::new().route("/search", get(search_handler))
+        .route("/download", get(download_pdb));
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000").await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }
 
 #[derive(Deserialize)]
-struct SearchTerm {
+struct SearchParams {
     search_term: String,
 }
 
-async fn search_handler(Query(params): Query<SearchTerm>) -> Result<Json<SearchResult>, StatusCode> {
+async fn search_handler(Query(params): Query<SearchParams>) -> Result<Json<SearchResult>, StatusCode> {
     let search_term = params.search_term;
     let search_request = serde_json::json!({
           "query": {
@@ -65,4 +67,24 @@ async fn search_handler(Query(params): Query<SearchTerm>) -> Result<Json<SearchR
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(Json(search_result_json))
+}
+
+#[derive(Deserialize)]
+struct DownloadParams {
+    pdb_id: String,
+}
+
+async fn download_pdb(Query(params): Query<DownloadParams>) -> Result<String, StatusCode> {
+    let pdb_id = params.pdb_id;
+    let download_url = format!("https://files.rcsb.org/download/{}.pdb", pdb_id);
+
+    let response: Result<Response, StatusCode> = reqwest::get(download_url)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR);
+
+    println!("{:?}", response);
+
+    let str_response = response?.text().await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR);
+
+    Ok(str_response?)
 }
