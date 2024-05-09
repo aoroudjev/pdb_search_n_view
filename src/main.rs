@@ -1,6 +1,7 @@
 use axum::{Json, Router, routing::get};
 use axum::extract::Query;
 use axum::http::StatusCode;
+use axum::body::Bytes;
 use serde::{Serialize, Deserialize};
 
 use urlencoding::encode;
@@ -74,7 +75,7 @@ struct DownloadParams {
     pdb_id: String,
 }
 
-async fn download_pdb(Query(params): Query<DownloadParams>) -> Result<String, StatusCode> {
+async fn download_pdb(Query(params): Query<DownloadParams>) -> Result<Bytes, StatusCode> {
     let pdb_id = params.pdb_id;
     let download_url = format!("https://files.rcsb.org/download/{}.pdb", pdb_id);
 
@@ -82,9 +83,8 @@ async fn download_pdb(Query(params): Query<DownloadParams>) -> Result<String, St
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR);
 
-    println!("{:?}", response);
+    let pdb_data = response?.bytes().await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR);
 
-    let str_response = response?.text().await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR);
-
-    Ok(str_response?)
+    Ok(pdb_data?)
+    // TODO: This will chane depending on the frontend process.
 }
