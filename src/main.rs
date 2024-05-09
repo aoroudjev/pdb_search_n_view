@@ -6,12 +6,19 @@ use serde::{Serialize, Deserialize};
 use urlencoding::encode;
 use reqwest;
 
-#[derive(Default, Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 struct SearchResult {
-    //TODO: Fix structure of returns
-    pdb_id: String,
-    name: String,
-    description: String,
+    query_id: String,
+    result_type: String,
+    total_count: usize,
+    result_set: Vec<Entry>,
+    facets: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Entry {
+    identifier: String,
+    score: f64,
 }
 
 #[tokio::main]
@@ -23,18 +30,18 @@ async fn main() {
 }
 
 #[derive(Deserialize)]
-struct PdbId {
-    pdb_id: String,
+struct SearchTerm {
+    search_term: String,
 }
 
-async fn search_handler(Query(params): Query<PdbId>) -> Result<Json<SearchResult>, StatusCode> {
-    let search_input = params.pdb_id;
+async fn search_handler(Query(params): Query<SearchTerm>) -> Result<Json<SearchResult>, StatusCode> {
+    let search_term = params.search_term;
     let search_request = serde_json::json!({
           "query": {
             "type": "terminal",
             "service": "full_text",
             "parameters": {
-              "value": search_input
+              "value": search_term
             }
           },
           "return_type": "entry"
@@ -49,17 +56,10 @@ async fn search_handler(Query(params): Query<PdbId>) -> Result<Json<SearchResult
     let search_result_json = client.get(api_url)
         .send()
         .await
-        .map_err(|e| {
-            dbg!(e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?.text().await;
-    // .json::<SearchResult>()
-    // .await
-    // .map_err(|e| {
-    //     dbg!(e);
-    //     StatusCode::INTERNAL_SERVER_ERROR
-    // })?;
-    dbg!(&search_result_json);
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .json::<SearchResult>()
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    Ok(Json(Default::default()))
+    Ok(Json(search_result_json))
 }
