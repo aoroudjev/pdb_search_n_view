@@ -343,6 +343,7 @@ name = "pdb_view_search"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "serde",
  "tokio",
 ]
 
