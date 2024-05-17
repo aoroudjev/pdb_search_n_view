@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+use std::ffi::CString;
 use axum::{Json, Router, routing::get};
 use axum::extract::Query;
 use axum::http::StatusCode;
@@ -14,7 +16,6 @@ struct SearchResult {
     result_type: String,
     total_count: usize,
     result_set: Vec<Entry>,
-    facets: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -77,6 +78,7 @@ struct DownloadParams {
 
 async fn download_pdb(Query(params): Query<DownloadParams>) -> Result<Bytes, StatusCode> {
     let pdb_id = params.pdb_id;
+
     let download_url = format!("https://files.rcsb.org/download/{}.pdb", pdb_id);
 
     let response: Result<Response, StatusCode> = reqwest::get(download_url)
@@ -86,5 +88,50 @@ async fn download_pdb(Query(params): Query<DownloadParams>) -> Result<Bytes, Sta
     let pdb_data = response?.bytes().await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR);
 
     Ok(pdb_data?)
-    // TODO: This will chane depending on the frontend process.
+    // TODO: This will change depending on the frontend process.
+}
+
+struct InfoParams {
+    entry_id: String,
+    entity_id: i8,
+}
+
+#[derive(Deserialize)]
+struct ProteinInfo {
+    rcsb_polymer_entity: String,
+}
+
+async fn get_uniprot_info(Query(params): Query<InfoParams>) -> Result<Json<ProteinInfo>, StatusCode> {
+    let entry_id = params.entry_id;
+    let entity_id = params.entity_id;
+    let search_request = serde_json::json!({
+          "query": {
+            "type": "terminal",
+            "service": "full_text",
+            "parameters": {
+              "value": search_term
+            }
+          },
+          "return_type": "entry",
+            "request_options": {
+                "return_all_hits": true
+            }
+        }).to_string();
+    dbg!(&search_request);
+
+
+    let encoded_search_request = encode(&search_request);
+
+    let api_url = format!("https://rest.uniprot.org/uniprotkb/search?query={}", search_request);
+    let client = reqwest::Client::new();
+
+    let search_result_json = client.get(api_url)
+        .send()
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .json::<ProteinInfo>()
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Json(search_result_json))
 }
