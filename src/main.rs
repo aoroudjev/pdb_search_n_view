@@ -20,6 +20,10 @@ struct EntryData {
     uniProtkbId: String,
     annotationScore:  f32,
     organism: HashMap<String, serde_json::Value>,
+    genes: Vec<HashMap<String, serde_json::Value>>,
+    features: Vec<HashMap<String, serde_json::Value>>,
+    sequence: serde_json::Value,
+
 }
 
 #[derive(Debug, Serialize, Deserialize)]
