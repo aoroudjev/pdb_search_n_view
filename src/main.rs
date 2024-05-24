@@ -69,7 +69,7 @@ async fn uniprot_search_handler(Query(params): Query<SearchParams>) -> Result<Js
 
 #[debug_handler]
 async fn alphafold_data_handler(Query(params): Query<SearchParams>) -> Result<Bytes, StatusCode> {
-    // Handler for retrieving protein structure data from uniprot for one specific entry
+    // Handler for retrieving protein structure data from alphafold for one specific entry
     let search_term = params.search_term;
     dbg!(&search_term);
 
