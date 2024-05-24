@@ -23,7 +23,7 @@ struct EntryData {
     genes: Vec<HashMap<String, serde_json::Value>>,
     features: Vec<HashMap<String, serde_json::Value>>,
     sequence: serde_json::Value,
-
+    comments: Vec<HashMap<String, serde_json::Value>>
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -32,7 +32,8 @@ struct SearchResults {
 }
 
 #[debug_handler]
-async fn uniprot_search(Query(params): Query<SearchParams>) -> Result<Json<SearchResults>, StatusCode> {
+async fn uniprot_search_handler(Query(params): Query<SearchParams>) -> Result<Json<SearchResults>, StatusCode> {
+    // Handler for searching through the uniprot database of entries using the given search term
     let search_term = params.search_term;
     dbg!(&search_term);
 
@@ -57,9 +58,23 @@ async fn uniprot_search(Query(params): Query<SearchParams>) -> Result<Json<Searc
     Ok(Json(search_result))
 }
 
+#[debug_handler]
+async fn alphafold_data_handler(Query(params): Query<SearchParams>) -> Result<Json<SearchResults>, StatusCode> {
+    // Handler for retrieving protein structure data from uniprot for one specific entry
+    let search_term = params.search_term;
+    dbg!(&search_term);
+
+    let api_url = format!("https://alphafold.ebi.ac.uk/files/{}.pdb", search_term);
+    dbg!(&api_url);
+
+
+    Ok()
+
+}
+
 #[tokio::main]
 async fn main() {
-    let app = Router::new().route("/", get(uniprot_search));
+    let app = Router::new().route("/", get(uniprot_search_handler));
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000").await.unwrap();
     axum::serve(listener, app).await.unwrap();
