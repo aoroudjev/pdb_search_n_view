@@ -14,7 +14,7 @@ async fn main() {
     let app = Router::new().route("/", get(uniprot_search_handler))
         .route("/data", get(alphafold_data_handler));
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000").await.unwrap();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:2000").await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }
 
