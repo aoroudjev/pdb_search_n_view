@@ -1,90 +1,89 @@
+use std::collections::HashMap;
 use axum::{Json, Router, routing::get};
+use axum_macros::debug_handler;
+use axum::body::Bytes;
 use axum::extract::Query;
 use axum::http::StatusCode;
-use axum::body::Bytes;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-use urlencoding::encode;
 use reqwest;
-use reqwest::Response;
-
-#[derive(Serialize, Deserialize, Debug)]
-struct SearchResult {
-    query_id: String,
-    result_type: String,
-    total_count: usize,
-    result_set: Vec<Entry>,
-    facets: Vec<String>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct Entry {
-    identifier: String,
-    score: f64,
-}
+use reqwest::{Client};
 
 #[tokio::main]
 async fn main() {
-    let app = Router::new().route("/search", get(search_handler))
-        .route("/download", get(download_pdb));
+    let app = Router::new().route("/", get(uniprot_search_handler))
+        .route("/data", get(alphafold_data_handler));
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000").await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct SearchParams {
     search_term: String,
 }
 
-async fn search_handler(Query(params): Query<SearchParams>) -> Result<Json<SearchResult>, StatusCode> {
+#[derive(Debug, Serialize, Deserialize)]
+struct EntryData {
+    entryType: String,
+    primaryAccession: String,
+    uniProtkbId: String,
+    annotationScore: f32,
+    organism: HashMap<String, serde_json::Value>,
+    features: Vec<HashMap<String, serde_json::Value>>,
+    sequence: serde_json::Value,
+    comments: Vec<HashMap<String, serde_json::Value>>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct SearchResults {
+    results: Vec<EntryData>,
+}
+
+#[debug_handler]
+async fn uniprot_search_handler(Query(params): Query<SearchParams>) -> Result<Json<SearchResults>, StatusCode> {
+    // Handler for searching through the uniprot database of entries using the given search term
     let search_term = params.search_term;
-    let search_request = serde_json::json!({
-          "query": {
-            "type": "terminal",
-            "service": "full_text",
-            "parameters": {
-              "value": search_term
-            }
-          },
-          "return_type": "entry",
-            "request_options": {
-                "return_all_hits": true
-            }
-        }).to_string();
-    dbg!(&search_request);
+    dbg!(&search_term);
 
+    let api_url = format!("https://rest.uniprot.org/uniprotkb/search?query={}", search_term);
+    dbg!(&api_url);
 
-    let encoded_search_request = encode(&search_request);
-    let api_url = format!("https://search.rcsb.org/rcsbsearch/v2/query?json={}", encoded_search_request);
-    let client = reqwest::Client::new();
-
-    let search_result_json = client.get(api_url)
+    let client: Client = Client::new();
+    let search_result = client.get(api_url)
         .send()
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-        .json::<SearchResult>()
+        .map_err(|e| {
+            dbg!(e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?
+        .json::<SearchResults>()
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(|e| {
+            dbg!(e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
 
-    Ok(Json(search_result_json))
+    Ok(Json(search_result))
 }
 
-#[derive(Deserialize)]
-struct DownloadParams {
-    pdb_id: String,
-}
+#[debug_handler]
+async fn alphafold_data_handler(Query(params): Query<SearchParams>) -> Result<Bytes, StatusCode> {
+    // Handler for retrieving protein structure data from alphafold for one specific entry
+    let search_term = params.search_term;
+    dbg!(&search_term);
 
-async fn download_pdb(Query(params): Query<DownloadParams>) -> Result<Bytes, StatusCode> {
-    let pdb_id = params.pdb_id;
-    let download_url = format!("https://files.rcsb.org/download/{}.pdb", pdb_id);
+    let api_url = format!("https://alphafold.ebi.ac.uk/files/AF-{}-F1-model_v4.pdb", search_term);
+    dbg!(&api_url);
 
-    let response: Result<Response, StatusCode> = reqwest::get(download_url)
+    let client: Client = Client::new();
+    let search_result = client.get(api_url)
+        .send()
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR);
 
-    let pdb_data = response?.bytes().await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR);
+    let pdb_data = search_result?.bytes().await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    Ok(pdb_data?)
-    // TODO: This will chane depending on the frontend process.
+    Ok(pdb_data)
 }
+
