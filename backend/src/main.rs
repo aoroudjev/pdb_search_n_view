@@ -3,18 +3,23 @@ use axum::{Json, Router, routing::get};
 use axum_macros::debug_handler;
 use axum::body::Bytes;
 use axum::extract::Query;
-use axum::http::StatusCode;
+use axum::http::{Method, StatusCode};
 use serde::{Deserialize, Serialize};
+use tower_http::cors::{Any, CorsLayer};
 
 use reqwest;
 use reqwest::{Client};
+use serde_json::Value::Array;
 
 #[tokio::main]
 async fn main() {
-    let app = Router::new().route("/", get(uniprot_search_handler))
-        .route("/data", get(alphafold_data_handler));
+    let cors = CorsLayer::new().allow_methods([Method::GET, Method::POST]).allow_origin(Any);
+    let app = Router::new()
+        .route("/", get(uniprot_search_handler))
+        .route("/data", get(alphafold_data_handler))
+        .layer(cors);
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:2000").await.unwrap();
+    let listener = tokio::net::TcpListener::bind("localhost:2000").await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }
 
