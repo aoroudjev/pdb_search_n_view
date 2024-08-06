@@ -33,13 +33,14 @@ function App() {
   return (
       <div className="App">
         <header className="App-header">
+          <h1>PDB Search 'n View</h1>
+        </header>
           <SearchBar onSearch={handleSearch} />
           <div className="results">
             {results.map((result, index) => (
                 <ReturnTile key={index} result={result} />
             ))}
           </div>
-        </header>
       </div>
   );
 }
