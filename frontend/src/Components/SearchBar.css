@@ -1,0 +1,16 @@
+.searchBar {
+    padding: 100px;
+}
+
+input {
+    height: 60px;
+    border: 1px;
+    border-radius: 30px 0 0 30px;
+    padding-left: 10px;
+    font-size: 30px;
+    color: #1D1B17;
+}
+
+button {
+    height: 60px;
+}
