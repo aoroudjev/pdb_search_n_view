@@ -1,12 +1,14 @@
 use axum::{Json, Router, routing::get};
 use axum::extract::Query;
-use axum::http::StatusCode;
+use axum::http::{Method, StatusCode};
 use axum::body::Bytes;
 use serde::{Serialize, Deserialize};
+use tower_http::cors::{Any, CorsLayer};
 
 use urlencoding::encode;
 use reqwest;
 use reqwest::Response;
+use serde_json::Value::Array;
 
 #[derive(Serialize, Deserialize, Debug)]
 struct SearchResult {
@@ -25,7 +27,8 @@ struct Entry {
 
 #[tokio::main]
 async fn main() {
-    let app = Router::new().route("/search", get(search_handler))
+    let app = Router::new()
+        .route("/search", get(search_handler))
         .route("/download", get(download_pdb));
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000").await.unwrap();
